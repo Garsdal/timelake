@@ -1,4 +1,4 @@
-# ⏳ imelake
+# ⏳ timelake
 
 **A time series feature framework**  
 Built for production ML. Fast. Safe. Flexible.
