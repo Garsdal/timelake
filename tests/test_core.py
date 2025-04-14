@@ -19,8 +19,8 @@ def cleanup_timelake_path():
     # Yielding to the test
     yield
 
-    if PATH.exists():
-        shutil.rmtree(PATH)
+    # if PATH.exists():
+    #     shutil.rmtree(PATH)
 
 
 def create_sample_data():

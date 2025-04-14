@@ -45,10 +45,15 @@ class TimeLake(BaseTimeLake):
         preprocessor = preprocessor or TimeLakePreprocessor()
 
         storage.ensure_directories()
+        preprocessor.validate(df, timestamp_column)
 
-        partition_by = (
-            [timestamp_column, *partition_by] if partition_by else [timestamp_column]
+        partition_by = preprocessor.resolve_partitions(
+            df, timestamp_column, partition_by or []
         )
+
+        df = preprocessor.enrich_partitions(df, timestamp_column)
+        df = preprocessor.add_inserted_at_column(df)
+
         metadata = {
             "timelake_version": "0.1.0",
             "created_at": datetime.now().isoformat(),
@@ -58,8 +63,7 @@ class TimeLake(BaseTimeLake):
             "lake_id": str(uuid.uuid4()),
         }
 
-        prepped_df = preprocessor.add_inserted_at_column(df)
-        write_deltalake(path, prepped_df, partition_by=partition_by)
+        write_deltalake(path, df, partition_by=partition_by)
         storage.save_metadata(metadata)
 
         return cls(path, timestamp_column, metadata, storage, preprocessor)

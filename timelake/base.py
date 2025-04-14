@@ -51,4 +51,17 @@ class BaseTimeLakeStorage(ABC):
 
 class BaseTimeLakePreprocessor(ABC):
     @abstractmethod
+    def validate(self, df: pl.DataFrame, timestamp_column: str) -> None: ...
+
+    @abstractmethod
+    def resolve_partitions(
+        self, df: pl.DataFrame, timestamp_column: str, user_partitions: List[str]
+    ) -> List[str]: ...
+
+    @abstractmethod
+    def enrich_partitions(
+        self, df: pl.DataFrame, timestamp_column: str
+    ) -> pl.DataFrame: ...
+
+    @abstractmethod
     def add_inserted_at_column(self, df: pl.DataFrame) -> pl.DataFrame: ...
