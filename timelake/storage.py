@@ -1,8 +1,8 @@
 import json
 import os
-from typing import Dict
 
 from timelake.base import BaseTimeLakeStorage
+from timelake.models import TimeLakeMetadata
 
 
 class TimeLakeStorage(BaseTimeLakeStorage):
@@ -15,12 +15,13 @@ class TimeLakeStorage(BaseTimeLakeStorage):
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(self.features_path, exist_ok=True)
 
-    def save_metadata(self, metadata: Dict):
+    def save_metadata(self, metadata: TimeLakeMetadata):
         with open(self.metadata_path, "w") as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(metadata.model_dump(), f, indent=2)
 
-    def load_metadata(self) -> Dict:
+    def load_metadata(self) -> TimeLakeMetadata:
         if not os.path.exists(self.metadata_path):
             raise FileNotFoundError(f"No metadata found at {self.metadata_path}")
         with open(self.metadata_path, "r") as f:
-            return json.load(f)
+            data = json.load(f)
+            return TimeLakeMetadata(**data)

@@ -1,13 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
 import polars as pl
+
+from timelake.models import TimeLakeMetadata
 
 
 class BaseTimeLake(ABC):
     path: str
     timestamp_column: str
-    metadata: Dict[str, Any]
+    metadata: TimeLakeMetadata
 
     @classmethod
     @abstractmethod
@@ -17,12 +19,19 @@ class BaseTimeLake(ABC):
         df: pl.DataFrame,
         timestamp_column: str,
         partition_by: Optional[List[str]] = None,
+        storage: Optional["BaseTimeLakeStorage"] = None,
+        preprocessor: Optional["BaseTimeLakePreprocessor"] = None,
     ) -> "BaseTimeLake":
         pass
 
     @classmethod
     @abstractmethod
-    def open(cls, path: str) -> "BaseTimeLake":
+    def open(
+        cls,
+        path: str,
+        storage: Optional["BaseTimeLakeStorage"] = None,
+        preprocessor: Optional["BaseTimeLakePreprocessor"] = None,
+    ) -> "BaseTimeLake":
         pass
 
     @abstractmethod
@@ -43,10 +52,10 @@ class BaseTimeLakeStorage(ABC):
     def ensure_directories(self) -> None: ...
 
     @abstractmethod
-    def save_metadata(self, metadata: Dict) -> None: ...
+    def save_metadata(self, metadata: TimeLakeMetadata) -> None: ...
 
     @abstractmethod
-    def load_metadata(self) -> Dict: ...
+    def load_metadata(self) -> TimeLakeMetadata: ...
 
 
 class BaseTimeLakePreprocessor(ABC):

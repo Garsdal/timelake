@@ -1,6 +1,5 @@
 import uuid
-from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import List, Literal, Optional
 
 import polars as pl
 from deltalake import DeltaTable, write_deltalake
@@ -10,6 +9,7 @@ from timelake.base import (
     BaseTimeLakePreprocessor,
     BaseTimeLakeStorage,
 )
+from timelake.models import TimeLakeMetadata
 from timelake.preprocessor import TimeLakePreprocessor
 from timelake.storage import TimeLakeStorage
 
@@ -19,7 +19,7 @@ class TimeLake(BaseTimeLake):
         self,
         path: str,
         timestamp_column: str,
-        metadata: Dict[str, Any],
+        metadata: TimeLakeMetadata,
         storage: Optional[BaseTimeLakeStorage] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ):
@@ -54,14 +54,11 @@ class TimeLake(BaseTimeLake):
         df = preprocessor.enrich_partitions(df, timestamp_column)
         df = preprocessor.add_inserted_at_column(df)
 
-        metadata = {
-            "timelake_version": "0.1.0",
-            "created_at": datetime.now().isoformat(),
-            "timestamp_column": timestamp_column,
-            "inserted_at_column": "_inserted_at",
-            "partition_by": partition_by,
-            "lake_id": str(uuid.uuid4()),
-        }
+        metadata = TimeLakeMetadata(
+            timestamp_column=timestamp_column,
+            partition_by=partition_by,
+            timelake_id=str(uuid.uuid4()),
+        )
 
         write_deltalake(path, df, partition_by=partition_by)
         storage.save_metadata(metadata)
@@ -77,7 +74,7 @@ class TimeLake(BaseTimeLake):
     ) -> "TimeLake":
         storage = storage or TimeLakeStorage(path)
         metadata = storage.load_metadata()
-        return cls(path, metadata["timestamp_column"], metadata, storage, preprocessor)
+        return cls(path, metadata.timestamp_column, metadata, storage, preprocessor)
 
     def write(
         self,
@@ -93,7 +90,7 @@ class TimeLake(BaseTimeLake):
         df_ts.write_delta(
             self.path,
             mode=mode,
-            delta_write_options={"partition_by": self.metadata["partition_by"]},
+            delta_write_options={"partition_by": self.metadata.partition_by},
         )
 
     def read(self) -> pl.DataFrame:
