@@ -38,6 +38,8 @@ def test_save_and_load_metadata(storage: TimeLakeStorage):
         partition_by=["date", "asset_id"],
         timelake_id="test-lake-id",
         timelake_version="0.1.0",
+        timelake_storage="test_storage",
+        timelake_preprocessor="test_preprocessor",
         created_at=datetime.now().isoformat(),
         inserted_at_column="_inserted_at",
     )
@@ -52,4 +54,6 @@ def test_save_and_load_metadata(storage: TimeLakeStorage):
     assert loaded.partition_by == metadata.partition_by
     assert loaded.timelake_id == metadata.timelake_id
     assert loaded.timelake_version == metadata.timelake_version
+    assert loaded.timelake_storage == metadata.timelake_storage
+    assert loaded.timelake_preprocessor == metadata.timelake_preprocessor
     assert loaded.inserted_at_column == metadata.inserted_at_column

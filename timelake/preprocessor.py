@@ -13,6 +13,15 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
         if timestamp_column not in df.columns:
             raise ValueError(f"Timestamp column '{timestamp_column}' is missing.")
 
+    def validate_partitions(self, df: pl.DataFrame, partition_by: List[str]) -> None:
+        if not partition_by:
+            raise ValueError("Partition columns are empty.")
+        for column in partition_by:
+            if column not in df.columns:
+                raise ValueError(f"Partition column '{column}' is missing.")
+        if len(set(partition_by)) != len(partition_by):
+            raise ValueError("Partition columns must be unique.")
+
     def resolve_partitions(
         self, df: pl.DataFrame, timestamp_column: str, user_partitions: List[str]
     ) -> List[str]:
@@ -25,7 +34,7 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
     def enrich_partitions(
         self, df: pl.DataFrame, timestamp_column: str
     ) -> pl.DataFrame:
-        # TO-DO: Add logic here
+        # TO-DO: Add logic here to enrich partitions if needed, e.g. day, month, year
         return df
 
     def add_inserted_at_column(self, df: pl.DataFrame) -> pl.DataFrame:

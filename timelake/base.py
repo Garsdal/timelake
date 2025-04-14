@@ -48,6 +48,8 @@ class BaseTimeLake(ABC):
 
 
 class BaseTimeLakeStorage(ABC):
+    path: str
+
     @abstractmethod
     def ensure_directories(self) -> None: ...
 
@@ -61,6 +63,11 @@ class BaseTimeLakeStorage(ABC):
 class BaseTimeLakePreprocessor(ABC):
     @abstractmethod
     def validate(self, df: pl.DataFrame, timestamp_column: str) -> None: ...
+
+    @abstractmethod
+    def validate_partitions(
+        self, df: pl.DataFrame, partition_by: List[str]
+    ) -> None: ...
 
     @abstractmethod
     def resolve_partitions(
