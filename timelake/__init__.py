@@ -1,1 +1,6 @@
-from timelake.src.core import TimeLake
+from timelake.base import (
+    BaseTimeLake,
+    BaseTimeLakePreprocessor,
+    BaseTimeLakeStorage,
+)
+from timelake.core import TimeLake

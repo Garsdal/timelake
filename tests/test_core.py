@@ -23,7 +23,6 @@ def cleanup_timelake_path():
         shutil.rmtree(PATH)
 
 
-# Create sample data
 def create_sample_data():
     dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(100)]
     prices = [100 + i + (i % 7) * 3 for i in range(100)]
