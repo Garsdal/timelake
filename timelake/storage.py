@@ -3,7 +3,7 @@ import os
 import uuid
 
 from timelake.base import BaseTimeLakePreprocessor, BaseTimeLakeStorage
-from timelake.constants import TimeLakeStorageType
+from timelake.constants import StorageType
 from timelake.models import TimeLakeMetadata
 
 
@@ -13,11 +13,11 @@ class TimeLakeStorage(BaseTimeLakeStorage):
 
     @staticmethod
     def create_storage(
-        storage_type: TimeLakeStorageType, path: str, **kwargs
+        storage_type: StorageType, path: str, **kwargs
     ) -> "TimeLakeStorage":
-        if storage_type == TimeLakeStorageType.LOCAL:
+        if storage_type == StorageType.LOCAL:
             return LocalTimeLakeStorage(path)
-        elif storage_type == TimeLakeStorageType.S3:
+        elif storage_type == StorageType.S3:
             return S3TimeLakeStorage(path, **kwargs)
         else:
             raise ValueError(f"Unsupported storage type: {storage_type}")
@@ -49,7 +49,7 @@ class LocalTimeLakeStorage(TimeLakeStorage):
             timelake_id=str(uuid.uuid4()),
             timelake_storage=self.__class__.__name__,
             timelake_preprocessor=preprocessor.__class__.__name__,
-            storage_type=TimeLakeStorageType.LOCAL.value,
+            storage_type=StorageType.LOCAL.value,
         )
 
     def save_metadata(self, metadata: TimeLakeMetadata):
@@ -62,6 +62,9 @@ class LocalTimeLakeStorage(TimeLakeStorage):
         with open(self.metadata_path, "r") as f:
             data = json.load(f)
             return TimeLakeMetadata(**data)
+
+    def get_storage_options(self) -> dict:
+        return {}
 
 
 class S3TimeLakeStorage(TimeLakeStorage):
@@ -90,7 +93,7 @@ class S3TimeLakeStorage(TimeLakeStorage):
             timelake_id=str(uuid.uuid4()),
             timelake_storage=self.__class__.__name__,
             timelake_preprocessor=preprocessor.__class__.__name__,
-            storage_type=TimeLakeStorageType.S3.value,
+            storage_type=StorageType.S3.value,
         )
 
     def save_metadata(self, metadata: TimeLakeMetadata):
@@ -100,3 +103,16 @@ class S3TimeLakeStorage(TimeLakeStorage):
     def load_metadata(self) -> TimeLakeMetadata:
         # Placeholder: Load metadata from S3
         pass
+
+    def get_storage_options(self) -> dict:
+        return {
+            "AWS_REGION": os.getenv(
+                "AWS_REGION", self.aws_credentials.get("region", "")
+            ),
+            "AWS_ACCESS_KEY_ID": os.getenv(
+                "AWS_ACCESS_KEY_ID", self.aws_credentials.get("access_key", "")
+            ),
+            "AWS_SECRET_ACCESS_KEY": os.getenv(
+                "AWS_SECRET_ACCESS_KEY", self.aws_credentials.get("secret_key", "")
+            ),
+        }

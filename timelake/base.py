@@ -76,6 +76,11 @@ class BaseTimeLakeStorage(ABC):
     @abstractmethod
     def load_metadata(self) -> TimeLakeMetadata: ...
 
+    @abstractmethod
+    def get_storage_options(self) -> dict:
+        """Return storage-specific options for integration with Polars."""
+        pass
+
 
 class BaseTimeLakePreprocessor(ABC):
     @abstractmethod

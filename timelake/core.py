@@ -8,7 +8,7 @@ from timelake.base import (
     BaseTimeLakePreprocessor,
     BaseTimeLakeStorage,
 )
-from timelake.constants import TimeLakeColumns, TimeLakeStorageType
+from timelake.constants import StorageType, TimeLakeColumns
 from timelake.models import TimeLakeMetadata
 from timelake.preprocessor import TimeLakePreprocessor
 from timelake.storage import TimeLakeStorage
@@ -41,7 +41,7 @@ class TimeLake(BaseTimeLake):
         path: str,
         df: pl.DataFrame,
         timestamp_column: str,
-        storage_type: TimeLakeStorageType = TimeLakeStorageType.LOCAL,
+        storage_type: StorageType = StorageType.LOCAL,
         storage_kwargs: Optional[dict] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
@@ -68,7 +68,7 @@ class TimeLake(BaseTimeLake):
     def open(
         cls,
         path: str,
-        storage_type: TimeLakeStorageType = TimeLakeStorageType.LOCAL,
+        storage_type: StorageType = StorageType.LOCAL,
         storage_kwargs: Optional[dict] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
@@ -93,6 +93,7 @@ class TimeLake(BaseTimeLake):
             self.path,
             mode=mode,
             delta_write_options={"partition_by": self.metadata.partition_by},
+            storage_options=self.storage.get_storage_options(),  # Pass storage options
         )
 
     def upsert(self, df: pl.DataFrame) -> None:
@@ -113,7 +114,7 @@ class TimeLake(BaseTimeLake):
         start_date: str = None,
         end_date: str = None,
     ) -> pl.DataFrame:
-        dt = DeltaTable(self.path)
+        dt = DeltaTable(self.path, storage_options=self.storage.get_storage_options())
 
         filters = []
         if signal:
@@ -125,11 +126,14 @@ class TimeLake(BaseTimeLake):
         if end_date:
             filters.append((timestamp_partition_column, "<=", end_date))
 
-        # Important: Use pyarrow options to push down partition filters
+        # Use storage options for reading
         if filters:
             return pl.read_delta(
                 dt,
                 pyarrow_options={"partitions": filters},
                 use_pyarrow=True,
             )
-        return pl.read_delta(dt)
+        return pl.read_delta(
+            dt,
+            use_pyarrow=True,
+        )

@@ -12,6 +12,6 @@ class TimeLakeColumns(Enum):
     SIGNAL = "signal"
 
 
-class TimeLakeStorageType(Enum):
+class StorageType(Enum):
     LOCAL = "local"
     S3 = "s3"

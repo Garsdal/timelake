@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from timelake.constants import TimeLakeStorageType
+from timelake.constants import StorageType
 from timelake.models import TimeLakeMetadata
 from timelake.storage import LocalTimeLakeStorage, S3TimeLakeStorage
 
@@ -61,7 +61,7 @@ def test_save_and_load_metadata_local(local_storage: LocalTimeLakeStorage):
         timelake_preprocessor="test_preprocessor",
         created_at=datetime.now().isoformat(),
         inserted_at_column="inserted_at",
-        storage_type=TimeLakeStorageType.LOCAL.value,
+        storage_type=StorageType.LOCAL.value,
     )
     local_storage.save_metadata(metadata)
 
@@ -97,7 +97,7 @@ def test_save_and_load_metadata_s3(s3_storage: S3TimeLakeStorage):
         timelake_preprocessor="test_preprocessor",
         created_at=datetime.now().isoformat(),
         inserted_at_column="inserted_at",
-        storage_type=TimeLakeStorageType.S3.value,
+        storage_type=StorageType.S3.value,
     )
     # Placeholder: Save metadata to S3 (mocked for now)
     s3_storage.save_metadata(metadata)
@@ -113,3 +113,8 @@ def test_save_and_load_metadata_s3(s3_storage: S3TimeLakeStorage):
     assert loaded.timelake_preprocessor == metadata.timelake_preprocessor
     assert loaded.inserted_at_column == metadata.inserted_at_column
     assert loaded.storage_type == metadata.storage_type
+
+
+def test_get_storage_options_local(local_storage: LocalTimeLakeStorage):
+    options = local_storage.get_storage_options()
+    assert options == {}
