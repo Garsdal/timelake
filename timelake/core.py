@@ -59,7 +59,12 @@ class TimeLake(BaseTimeLake):
         )
 
         partition_by = preprocessor.get_default_partitions(timestamp_column)
-        write_deltalake(path, df, partition_by=partition_by)
+        write_deltalake(
+            path,
+            df,
+            partition_by=partition_by,
+            storage_options=storage.get_storage_options(),
+        )
         storage.save_metadata(instance.metadata)
 
         return instance

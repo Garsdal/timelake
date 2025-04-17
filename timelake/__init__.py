@@ -3,6 +3,7 @@ from timelake.base import (
     BaseTimeLakePreprocessor,
     BaseTimeLakeStorage,
 )
+from timelake.constants import StorageType
 from timelake.core import TimeLake
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "BaseTimeLakePreprocessor",
     "BaseTimeLakeStorage",
     "TimeLake",
+    "StorageType",
 ]
