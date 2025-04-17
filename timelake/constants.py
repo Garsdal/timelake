@@ -10,3 +10,8 @@ class TimeLakeColumns(Enum):
 
     INSERTED_AT = "inserted_at"
     SIGNAL = "signal"
+
+
+class TimeLakeStorageType(Enum):
+    LOCAL = "local"
+    S3 = "s3"

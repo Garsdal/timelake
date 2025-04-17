@@ -51,6 +51,15 @@ class BaseTimeLakeStorage(ABC):
     path: str
 
     @abstractmethod
+    def create_storage(
+        self,
+        storage_type: str,
+        path: str,
+        **kwargs,
+    ) -> "BaseTimeLakeStorage":
+        pass
+
+    @abstractmethod
     def ensure_directories(self) -> None: ...
 
     @abstractmethod

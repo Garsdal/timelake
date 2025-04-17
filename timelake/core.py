@@ -8,7 +8,7 @@ from timelake.base import (
     BaseTimeLakePreprocessor,
     BaseTimeLakeStorage,
 )
-from timelake.constants import TimeLakeColumns
+from timelake.constants import TimeLakeColumns, TimeLakeStorageType
 from timelake.models import TimeLakeMetadata
 from timelake.preprocessor import TimeLakePreprocessor
 from timelake.storage import TimeLakeStorage
@@ -41,10 +41,12 @@ class TimeLake(BaseTimeLake):
         path: str,
         df: pl.DataFrame,
         timestamp_column: str,
-        storage: Optional[BaseTimeLakeStorage] = None,
+        storage_type: TimeLakeStorageType = TimeLakeStorageType.LOCAL,
+        storage_kwargs: Optional[dict] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
-        storage = storage or TimeLakeStorage(path)
+        storage_kwargs = storage_kwargs or {}
+        storage = TimeLakeStorage.create_storage(storage_type, path, **storage_kwargs)
         storage.ensure_directories()
 
         preprocessor = preprocessor or TimeLakePreprocessor()
@@ -66,10 +68,12 @@ class TimeLake(BaseTimeLake):
     def open(
         cls,
         path: str,
-        storage: Optional[BaseTimeLakeStorage] = None,
+        storage_type: TimeLakeStorageType = TimeLakeStorageType.LOCAL,
+        storage_kwargs: Optional[dict] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
-        storage = storage or TimeLakeStorage(path)
+        storage_kwargs = storage_kwargs or {}
+        storage = TimeLakeStorage.create_storage(storage_type, path, **storage_kwargs)
         metadata = storage.load_metadata()
         preprocessor = preprocessor or TimeLakePreprocessor()
         return cls(
