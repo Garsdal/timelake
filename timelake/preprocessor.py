@@ -4,6 +4,7 @@ from typing import List
 import polars as pl
 
 from timelake.base import BaseTimeLakePreprocessor
+from timelake.constants import TimeLakeColumns
 
 
 class TimeLakePreprocessor(BaseTimeLakePreprocessor):
@@ -23,20 +24,35 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
             raise ValueError("Partition columns must be unique.")
 
     def resolve_partitions(
-        self, df: pl.DataFrame, timestamp_column: str, user_partitions: List[str]
+        self, timestamp_column: str, user_partitions: List[str]
     ) -> List[str]:
-        return (
-            [timestamp_column] + user_partitions
-            if user_partitions
-            else [timestamp_column]
-        )
+        day_partition = f"{timestamp_column}_day"
+
+        partitions = [day_partition]
+        for col in user_partitions:
+            if col not in partitions:
+                partitions.append(col)
+
+        return partitions
 
     def enrich_partitions(
         self, df: pl.DataFrame, timestamp_column: str
     ) -> pl.DataFrame:
-        # TO-DO: Add logic here to enrich partitions if needed, e.g. day, month, year
+        day_partition = f"{timestamp_column}_day"
+
+        df = df.with_columns(
+            pl.col(timestamp_column)
+            .dt.truncate("1d")
+            .dt.strftime("%Y-%m-%d")
+            .alias(day_partition)
+        )
+
         return df
 
     def add_inserted_at_column(self, df: pl.DataFrame) -> pl.DataFrame:
         now = datetime.now().isoformat()
-        return df.with_columns(pl.lit(now).alias("_inserted_at"))
+        return df.with_columns(pl.lit(now).alias(TimeLakeColumns.INSERTED_AT.value))
+
+    def get_timestamp_partition_column(self, timestamp_column: str) -> str:
+        """Determine the timestamp partition column dynamically."""
+        return f"{timestamp_column}_day"

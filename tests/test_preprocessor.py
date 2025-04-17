@@ -3,6 +3,7 @@ from datetime import datetime
 import polars as pl
 import pytest
 
+from timelake.constants import TimeLakeColumns
 from timelake.preprocessor import TimeLakePreprocessor
 
 
@@ -35,21 +36,22 @@ def test_validate_missing_timestamp(sample_df):
         preprocessor.validate(sample_df, "missing_ts")
 
 
-def test_resolve_partitions_with_user_partitions(sample_df):
+def test_resolve_partitions_with_user_partitions():
     preprocessor = TimeLakePreprocessor()
-    result = preprocessor.resolve_partitions(sample_df, "date", ["asset_id"])
-    assert result == ["date", "asset_id"]
+    result = preprocessor.resolve_partitions("date", ["asset_id"])
+    assert result == ["date_day", "asset_id"]
 
 
-def test_resolve_partitions_without_user_partitions(sample_df):
+def test_resolve_partitions_without_user_partitions():
     preprocessor = TimeLakePreprocessor()
-    result = preprocessor.resolve_partitions(sample_df, "date", [])
-    assert result == ["date"]
+    result = preprocessor.resolve_partitions("date", [])
+    assert result == ["date_day"]
 
 
 def test_add_inserted_at_column(sample_df):
     preprocessor = TimeLakePreprocessor()
     enriched_df = preprocessor.add_inserted_at_column(sample_df)
+    inserted_at_column = TimeLakeColumns.INSERTED_AT.value
 
-    assert "_inserted_at" in enriched_df.columns
-    assert enriched_df["_inserted_at"].n_unique() == 1  # Same timestamp for all rows
+    assert inserted_at_column in enriched_df.columns
+    assert enriched_df[inserted_at_column].n_unique() == 1

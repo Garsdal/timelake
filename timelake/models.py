@@ -8,6 +8,7 @@ from timelake.constants import TIMELAKE_VERSION, TimeLakeColumns
 
 class TimeLakeMetadata(BaseModel):
     timestamp_column: str
+    timestamp_partition_column: str
     partition_by: List[str]
     timelake_id: str
     timelake_storage: str

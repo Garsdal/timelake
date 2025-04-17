@@ -8,5 +8,5 @@ class TimeLakeColumns(Enum):
     Enum for TimeLake default column names.
     """
 
-    INSERTED_AT = "_inserted_at"
-    SIGNAL = "_signal"
+    INSERTED_AT = "inserted_at"
+    SIGNAL = "signal"

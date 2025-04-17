@@ -35,13 +35,14 @@ def test_ensure_directories(storage: TimeLakeStorage):
 def test_save_and_load_metadata(storage: TimeLakeStorage):
     metadata = TimeLakeMetadata(
         timestamp_column="date",
+        timestamp_partition_column="date_day",
         partition_by=["date", "asset_id"],
         timelake_id="test-lake-id",
         timelake_version="0.1.0",
         timelake_storage="test_storage",
         timelake_preprocessor="test_preprocessor",
         created_at=datetime.now().isoformat(),
-        inserted_at_column="_inserted_at",
+        inserted_at_column="inserted_at",
     )
     storage.save_metadata(metadata)
 
@@ -51,6 +52,7 @@ def test_save_and_load_metadata(storage: TimeLakeStorage):
     # Reload and assert fields
     loaded = storage.load_metadata()
     assert loaded.timestamp_column == metadata.timestamp_column
+    assert loaded.timestamp_partition_column == metadata.timestamp_partition_column
     assert loaded.partition_by == metadata.partition_by
     assert loaded.timelake_id == metadata.timelake_id
     assert loaded.timelake_version == metadata.timelake_version

@@ -54,6 +54,14 @@ class BaseTimeLakeStorage(ABC):
     def ensure_directories(self) -> None: ...
 
     @abstractmethod
+    def create_metadata(
+        self,
+        timestamp_column: str,
+        partition_by: List[str],
+        preprocessor: "BaseTimeLakePreprocessor",
+    ) -> TimeLakeMetadata: ...
+
+    @abstractmethod
     def save_metadata(self, metadata: TimeLakeMetadata) -> None: ...
 
     @abstractmethod
@@ -81,3 +89,6 @@ class BaseTimeLakePreprocessor(ABC):
 
     @abstractmethod
     def add_inserted_at_column(self, df: pl.DataFrame) -> pl.DataFrame: ...
+
+    @abstractmethod
+    def get_timestamp_partition_column(self, timestamp_column: str) -> str: ...
