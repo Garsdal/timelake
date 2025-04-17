@@ -1,7 +1,6 @@
 import json
 import os
 import uuid
-from typing import List
 
 from timelake.base import BaseTimeLakePreprocessor, BaseTimeLakeStorage
 from timelake.models import TimeLakeMetadata
@@ -20,12 +19,12 @@ class TimeLakeStorage(BaseTimeLakeStorage):
     def create_metadata(
         self,
         timestamp_column: str,
-        partition_by: List[str],
         preprocessor: BaseTimeLakePreprocessor,
     ) -> TimeLakeMetadata:
         timestamp_partition_column = preprocessor.get_timestamp_partition_column(
             timestamp_column
         )
+        partition_by = preprocessor.get_default_partitions(timestamp_column)
         return TimeLakeMetadata(
             timestamp_column=timestamp_column,
             timestamp_partition_column=timestamp_partition_column,

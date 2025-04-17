@@ -36,18 +36,6 @@ def test_validate_missing_timestamp(sample_df):
         preprocessor.validate(sample_df, "missing_ts")
 
 
-def test_resolve_partitions_with_user_partitions():
-    preprocessor = TimeLakePreprocessor()
-    result = preprocessor.resolve_partitions("date", ["asset_id"])
-    assert result == ["date_day", "asset_id"]
-
-
-def test_resolve_partitions_without_user_partitions():
-    preprocessor = TimeLakePreprocessor()
-    result = preprocessor.resolve_partitions("date", [])
-    assert result == ["date_day"]
-
-
 def test_add_inserted_at_column(sample_df):
     preprocessor = TimeLakePreprocessor()
     enriched_df = preprocessor.add_inserted_at_column(sample_df)

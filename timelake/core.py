@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 import polars as pl
 from deltalake import DeltaTable, write_deltalake
@@ -21,7 +21,6 @@ class TimeLake(BaseTimeLake):
         storage: BaseTimeLakeStorage,
         preprocessor: BaseTimeLakePreprocessor,
         metadata: Optional[TimeLakeMetadata] = None,
-        partition_by: Optional[List[str]] = None,
     ):
         self.timestamp_column = timestamp_column
         self.storage = storage
@@ -31,7 +30,6 @@ class TimeLake(BaseTimeLake):
         # Load metadata or create it if not provided
         self.metadata = metadata or self.storage.create_metadata(
             timestamp_column=self.timestamp_column,
-            partition_by=partition_by or [],
             preprocessor=self.preprocessor,
         )
 
@@ -43,7 +41,6 @@ class TimeLake(BaseTimeLake):
         path: str,
         df: pl.DataFrame,
         timestamp_column: str,
-        partition_by: List[str] = [],
         storage: Optional[BaseTimeLakeStorage] = None,
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
@@ -53,7 +50,7 @@ class TimeLake(BaseTimeLake):
         storage.ensure_directories()
         preprocessor.validate(df, timestamp_column)
 
-        partition_by = preprocessor.resolve_partitions(timestamp_column, partition_by)
+        # Handle partitions internally
         df = preprocessor.enrich_partitions(df, timestamp_column)
         df = preprocessor.add_inserted_at_column(df)
 
@@ -62,9 +59,9 @@ class TimeLake(BaseTimeLake):
             timestamp_column=timestamp_column,
             storage=storage,
             preprocessor=preprocessor,
-            partition_by=partition_by,
         )
 
+        partition_by = preprocessor.get_default_partitions(timestamp_column)
         write_deltalake(path, df, partition_by=partition_by)
         storage.save_metadata(instance.metadata)
 
@@ -114,7 +111,6 @@ class TimeLake(BaseTimeLake):
     ) -> pl.DataFrame:
         dt = DeltaTable(self.path)
 
-        # Build filters based on parameters
         filters = []
         if signal:
             filters.append((TimeLakeColumns.SIGNAL.value, "=", signal))
@@ -126,7 +122,7 @@ class TimeLake(BaseTimeLake):
         if end_date:
             filters.append((timestamp_partition_column, "<=", end_date))
 
-        # Use pyarrow options to push down filters if available
+        # Use pyarrow options to push down filters
         if filters:
             return pl.read_delta(
                 dt,
