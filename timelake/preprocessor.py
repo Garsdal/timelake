@@ -30,8 +30,10 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
         return [self.get_timestamp_partition_column(timestamp_column)]
 
     def add_inserted_at_column(self, df: pl.DataFrame) -> pl.DataFrame:
-        now = datetime.now().isoformat()
-        return df.with_columns(pl.lit(now).alias(TimeLakeColumns.INSERTED_AT.value))
+        now = datetime.now()
+        return df.with_columns(
+            pl.lit(now).cast(pl.Datetime).alias(TimeLakeColumns.INSERTED_AT.value)
+        )
 
     def enrich_partitions(
         self, df: pl.DataFrame, timestamp_column: str
@@ -43,7 +45,6 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
             .dt.strftime("%Y-%m-%d")
             .alias(day_partition)
         )
-
         return df
 
     def prepare_data(self, df: pl.DataFrame, timestamp_column: str) -> pl.DataFrame:

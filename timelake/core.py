@@ -91,6 +91,18 @@ class TimeLake(BaseTimeLake):
             delta_write_options={"partition_by": self.metadata.partition_by},
         )
 
+    def upsert(self, df: pl.DataFrame) -> None:
+        df = self.preprocessor.run(df, self.timestamp_column)
+        df.write_delta(
+            self.path,
+            mode="merge",
+            delta_merge_options={
+                "predicate": f"s.{self.timestamp_column} = t.{self.timestamp_column}",
+                "source_alias": "s",
+                "target_alias": "t",
+            },
+        ).when_matched_update_all().when_not_matched_insert_all().execute()
+
     def read(
         self,
         signal: str = None,
@@ -103,14 +115,13 @@ class TimeLake(BaseTimeLake):
         if signal:
             filters.append((TimeLakeColumns.SIGNAL.value, "=", signal))
 
-        # Add timestamp filters if provided
         timestamp_partition_column = self.metadata.timestamp_partition_column
         if start_date:
             filters.append((timestamp_partition_column, ">=", start_date))
         if end_date:
             filters.append((timestamp_partition_column, "<=", end_date))
 
-        # Use pyarrow options to push down filters
+        # Important: Use pyarrow options to push down partition filters
         if filters:
             return pl.read_delta(
                 dt,
