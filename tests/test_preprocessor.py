@@ -18,28 +18,66 @@ def sample_df():
     )
 
 
-def test_validate_success(sample_df):
+def test_validate_dataframe_success(sample_df):
     preprocessor = TimeLakePreprocessor()
-    preprocessor.validate(sample_df, "date")  # Should not raise
+    # Should not raise any exceptions
+    preprocessor.validate_dataframe(sample_df, "date")
 
 
-def test_validate_empty_df():
+def test_validate_dataframe_empty_df():
     preprocessor = TimeLakePreprocessor()
     df = pl.DataFrame(schema={"date": pl.Datetime, "asset_id": pl.String})
-    with pytest.raises(ValueError, match="DataFrame is empty"):
-        preprocessor.validate(df, "date")
+    with pytest.raises(ValueError, match="DataFrame is empty."):
+        preprocessor.validate_dataframe(df, "date")
 
 
-def test_validate_missing_timestamp(sample_df):
+def test_validate_dataframe_missing_timestamp(sample_df):
     preprocessor = TimeLakePreprocessor()
-    with pytest.raises(ValueError, match="Timestamp column 'missing_ts' is missing"):
-        preprocessor.validate(sample_df, "missing_ts")
+    with pytest.raises(ValueError, match="Timestamp column 'missing_ts' is missing."):
+        preprocessor.validate_dataframe(sample_df, "missing_ts")
 
 
-def test_add_inserted_at_column(sample_df):
+def test_validate_partitions_success(sample_df):
     preprocessor = TimeLakePreprocessor()
-    enriched_df = preprocessor.add_inserted_at_column(sample_df)
-    inserted_at_column = TimeLakeColumns.INSERTED_AT.value
+    # Should not raise any exceptions
+    preprocessor.validate_partitions(sample_df, ["date", "asset_id"])
 
-    assert inserted_at_column in enriched_df.columns
-    assert enriched_df[inserted_at_column].n_unique() == 1
+
+def test_validate_partitions_missing_column(sample_df):
+    preprocessor = TimeLakePreprocessor()
+    with pytest.raises(ValueError, match="Partition column 'missing_col' is missing."):
+        preprocessor.validate_partitions(sample_df, ["date", "missing_col"])
+
+
+def test_validate_partitions_empty():
+    preprocessor = TimeLakePreprocessor()
+    with pytest.raises(ValueError, match="Partition columns are empty."):
+        preprocessor.validate_partitions(pl.DataFrame(), [])
+
+
+def test_validate_partitions_duplicate_columns(sample_df):
+    preprocessor = TimeLakePreprocessor()
+    with pytest.raises(ValueError, match="Partition columns must be unique."):
+        preprocessor.validate_partitions(sample_df, ["date", "date"])
+
+
+def test_run_success(sample_df):
+    preprocessor = TimeLakePreprocessor()
+    processed_df = preprocessor.run(sample_df, "date")
+    assert "date_day" in processed_df.columns  # Default partition column
+    assert (
+        TimeLakeColumns.INSERTED_AT.value in processed_df.columns
+    )  # Inserted at column
+
+
+def test_run_invalid_dataframe():
+    preprocessor = TimeLakePreprocessor()
+    df = pl.DataFrame(schema={"date": pl.Datetime, "asset_id": pl.String})
+    with pytest.raises(ValueError, match="DataFrame is empty."):
+        preprocessor.run(df, "date")
+
+
+def test_run_missing_timestamp(sample_df):
+    preprocessor = TimeLakePreprocessor()
+    with pytest.raises(ValueError, match="Timestamp column 'missing_ts' is missing."):
+        preprocessor.run(sample_df, "missing_ts")

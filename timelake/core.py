@@ -45,16 +45,11 @@ class TimeLake(BaseTimeLake):
         preprocessor: Optional[BaseTimeLakePreprocessor] = None,
     ) -> "TimeLake":
         storage = storage or TimeLakeStorage(path)
-        preprocessor = preprocessor or TimeLakePreprocessor()
-
         storage.ensure_directories()
-        preprocessor.validate(df, timestamp_column)
 
-        # Handle partitions internally
-        df = preprocessor.enrich_partitions(df, timestamp_column)
-        df = preprocessor.add_inserted_at_column(df)
+        preprocessor = preprocessor or TimeLakePreprocessor()
+        df = preprocessor.run(df, timestamp_column)
 
-        # Initialize TimeLake with partition_by
         instance = cls(
             timestamp_column=timestamp_column,
             storage=storage,
@@ -77,8 +72,6 @@ class TimeLake(BaseTimeLake):
         storage = storage or TimeLakeStorage(path)
         metadata = storage.load_metadata()
         preprocessor = preprocessor or TimeLakePreprocessor()
-
-        # Initialize TimeLake with loaded metadata
         return cls(
             timestamp_column=metadata.timestamp_column,
             storage=storage,
@@ -91,12 +84,7 @@ class TimeLake(BaseTimeLake):
         df: pl.DataFrame,
         mode: Literal["append", "overwrite"] = "append",
     ) -> None:
-        self.preprocessor.validate(df, self.timestamp_column)
-        df = self.preprocessor.enrich_partitions(df, self.timestamp_column)
-
-        self.preprocessor.validate_partitions(df, self.metadata.partition_by)
-        df = self.preprocessor.add_inserted_at_column(df)
-
+        df = self.preprocessor.run(df, self.timestamp_column)
         df.write_delta(
             self.path,
             mode=mode,

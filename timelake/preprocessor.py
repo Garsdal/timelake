@@ -8,7 +8,7 @@ from timelake.constants import TimeLakeColumns
 
 
 class TimeLakePreprocessor(BaseTimeLakePreprocessor):
-    def validate(self, df: pl.DataFrame, timestamp_column: str) -> None:
+    def validate_dataframe(self, df: pl.DataFrame, timestamp_column: str) -> None:
         if df.shape[0] == 0:
             raise ValueError("DataFrame is empty.")
         if timestamp_column not in df.columns:
@@ -44,4 +44,19 @@ class TimeLakePreprocessor(BaseTimeLakePreprocessor):
             .alias(day_partition)
         )
 
+        return df
+
+    def prepare_data(self, df: pl.DataFrame, timestamp_column: str) -> pl.DataFrame:
+        df = self.enrich_partitions(df, timestamp_column)
+        df = self.add_inserted_at_column(df)
+        return df
+
+    def run(
+        self,
+        df: pl.DataFrame,
+        timestamp_column: str,
+    ) -> pl.DataFrame:
+        self.validate_dataframe(df, timestamp_column)
+        df = self.prepare_data(df, timestamp_column)
+        self.validate_partitions(df, self.get_default_partitions(timestamp_column))
         return df
