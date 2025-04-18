@@ -42,7 +42,7 @@ def test_create_timelake():
         df=df,
         timestamp_column="date",
     )
-    assert lake.path == PATH
+    assert lake.path == str(PATH)
 
 
 def test_write_timelake():

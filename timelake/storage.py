@@ -1,19 +1,17 @@
-import json
 import os
-import uuid
+from pathlib import Path
 
-from timelake.base import BaseTimeLakePreprocessor, BaseTimeLakeStorage
+from timelake.base import BaseTimeLakeStorage
 from timelake.constants import StorageType
-from timelake.models import TimeLakeMetadata
 
 
 class TimeLakeStorage(BaseTimeLakeStorage):
-    def __init__(self, path: str):
+    def __init__(self, path: Path):
         self.path = path
 
     @staticmethod
     def create_storage(
-        storage_type: StorageType, path: str, **kwargs
+        storage_type: StorageType, path: Path, **kwargs
     ) -> "TimeLakeStorage":
         if storage_type == StorageType.LOCAL:
             return LocalTimeLakeStorage(path)
@@ -24,44 +22,13 @@ class TimeLakeStorage(BaseTimeLakeStorage):
 
 
 class LocalTimeLakeStorage(TimeLakeStorage):
-    def __init__(self, path: str):
+    def __init__(self, path: Path):
         super().__init__(path)
-        self.features_path = os.path.join(path, "_timelake_features")
-        self.metadata_path = os.path.join(path, "_timelake_metadata.json")
+        self.features_path = Path(os.path.join(path, "_timelake_features"))
 
     def ensure_directories(self):
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(self.features_path, exist_ok=True)
-
-    def create_metadata(
-        self,
-        timestamp_column: str,
-        preprocessor: BaseTimeLakePreprocessor,
-    ) -> TimeLakeMetadata:
-        timestamp_partition_column = preprocessor.get_timestamp_partition_column(
-            timestamp_column
-        )
-        partition_by = preprocessor.get_default_partitions(timestamp_column)
-        return TimeLakeMetadata(
-            timestamp_column=timestamp_column,
-            timestamp_partition_column=timestamp_partition_column,
-            partition_by=partition_by,
-            timelake_id=str(uuid.uuid4()),
-            timelake_storage=self.__class__.__name__,
-            timelake_preprocessor=preprocessor.__class__.__name__,
-            storage_type=StorageType.LOCAL.value,
-        )
-
-    def save_metadata(self, metadata: TimeLakeMetadata):
-        with open(self.metadata_path, "w") as f:
-            json.dump(metadata.model_dump(), f, indent=2)
-
-    def load_metadata(self) -> TimeLakeMetadata:
-        if not os.path.exists(self.metadata_path):
-            raise FileNotFoundError(f"No metadata found at {self.metadata_path}")
-        with open(self.metadata_path, "r") as f:
-            data = json.load(f)
-            return TimeLakeMetadata(**data)
 
     def get_storage_options(self) -> dict:
         return {}
@@ -75,8 +42,11 @@ class S3TimeLakeStorage(TimeLakeStorage):
 
     @staticmethod
     def _extract_bucket_name(path: str) -> str:
+        """
+        Big note here: When we treat S3 paths using Path() we convert "//" to "/"
+        """
         if not path.startswith("s3://"):
-            raise ValueError(f"Invalid S3 path: {path}. Must start with 's3://'.")
+            raise ValueError(f"Invalid S3 path: {path}. Must start with 's3:/'.")
         bucket_name = path.split("/")[2]  # Extract bucket name from the path
         if not bucket_name:
             raise ValueError(f"Bucket name could not be derived from path: {path}")
@@ -93,33 +63,6 @@ class S3TimeLakeStorage(TimeLakeStorage):
 
     def ensure_directories(self):
         # Placeholder: Ensure S3 bucket and paths exist
-        pass
-
-    def create_metadata(
-        self,
-        timestamp_column: str,
-        preprocessor: BaseTimeLakePreprocessor,
-    ) -> TimeLakeMetadata:
-        timestamp_partition_column = preprocessor.get_timestamp_partition_column(
-            timestamp_column
-        )
-        partition_by = preprocessor.get_default_partitions(timestamp_column)
-        return TimeLakeMetadata(
-            timestamp_column=timestamp_column,
-            timestamp_partition_column=timestamp_partition_column,
-            partition_by=partition_by,
-            timelake_id=str(uuid.uuid4()),
-            timelake_storage=self.__class__.__name__,
-            timelake_preprocessor=preprocessor.__class__.__name__,
-            storage_type=StorageType.S3.value,
-        )
-
-    def save_metadata(self, metadata: TimeLakeMetadata):
-        # Placeholder: Save metadata to S3
-        pass
-
-    def load_metadata(self) -> TimeLakeMetadata:
-        # Placeholder: Load metadata from S3
         pass
 
     def get_storage_options(self) -> dict:
