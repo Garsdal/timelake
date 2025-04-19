@@ -55,9 +55,8 @@ class DatasetEntry(BaseCatalogEntry):
     """
 
     path: str
-    dataset_schema: Dict[str, str]  # Renamed from `schema` to `dataset_schema`
-    partition_columns: List[str] = Field(default_factory=list)
-    primary_key: Optional[str] = None
+    dataset_schema: Dict[str, str]
+    partition_columns: List[str] = Field(default_factory=list)  # Add partition columns
     properties: Dict[str, Any] = Field(default_factory=dict)
 
     def __init__(self, **data):

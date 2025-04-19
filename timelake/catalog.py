@@ -147,25 +147,6 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
         }
         return model_class(**entry_data)
 
-    def get_entry(self, entry_id: str) -> Optional[BaseCatalogEntry]:
-        """
-        Get an entry from the catalog by ID.
-
-        Args:
-            entry_id: ID of the entry to retrieve
-
-        Returns:
-            Optional[BaseCatalogEntry]: The catalog entry if found, else None
-        """
-        dt = DeltaTable(self.catalog_path, storage_options=self.storage_options)
-        catalog_df = pl.read_delta(dt)
-
-        result = catalog_df.filter(pl.col("id") == entry_id)
-        if len(result) == 0:
-            return None
-
-        return self._parse_entry(result.row(0, named=True))
-
     def get_entry_by_name(
         self, name: str, entry_type: str
     ) -> Optional[BaseCatalogEntry]:
@@ -199,7 +180,9 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
 
         return [self._parse_entry(row) for row in catalog_df.iter_rows(named=True)]
 
-    def update_entry(self, entry_id: str, properties: Dict[str, Any]) -> bool:
+    def update_entry(
+        self, entry_name: str, entry_type: str, properties: Dict[str, Any]
+    ) -> bool:
         """
         Update an existing catalog entry using Delta Lake merge operation.
 
@@ -211,7 +194,7 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
             bool: True if the entry was updated, False if not found
         """
         # Get current entry to merge properties
-        current_entry = self.get_entry(entry_id)
+        current_entry = self.get_entry_by_name(entry_name, entry_type)
         if not current_entry:
             return False
 
@@ -226,7 +209,7 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
         update_df = pl.DataFrame(
             [
                 {
-                    "id": entry_id,
+                    "id": current_entry.id,
                     "updated_at": datetime.now(),
                     "properties": json.dumps(current_props),
                 }
@@ -247,12 +230,12 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
 
         return True
 
-    def delete_entry(self, entry_id: str) -> bool:
+    def delete_entry(self, entry_name: str) -> bool:
         """
         Delete an entry from the catalog.
 
         Args:
-            entry_id: ID of the entry to delete
+            entry_name: The name of the entry to delete
 
         Returns:
             bool: True if the entry was deleted, False if not found
@@ -261,7 +244,7 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
         catalog_df = pl.read_delta(dt)
 
         # Filter out the entry
-        filtered_df = catalog_df.filter(pl.col("id") != entry_id)
+        filtered_df = catalog_df.filter(pl.col("name") != entry_name)
 
         if len(filtered_df) == len(catalog_df):
             # No rows were removed
@@ -310,8 +293,7 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
         name: str,
         path: Path,
         df: pl.DataFrame,
-        partition_columns: Optional[List[str]] = None,
-        primary_key: Optional[str] = None,
+        partition_columns: List[str],
         storage_options: Optional[Dict[str, Any]] = None,
     ) -> DatasetEntry:
         """
@@ -322,16 +304,11 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
             path: Path to store the dataset
             df: Data to write
             partition_columns: Columns to partition by
-            primary_key: Primary key column
             storage_options: Storage options for writing the dataset
 
         Returns:
             DatasetEntry: The created dataset entry
         """
-        # Define partition columns if not provided
-        if not partition_columns:
-            partition_columns = []
-
         # Create dataset entry
         dataset_entry = DatasetEntry(
             name=name,
@@ -339,8 +316,7 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
             dataset_schema={
                 col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)
             },
-            partition_columns=partition_columns,
-            primary_key=primary_key,
+            partition_columns=partition_columns,  # Store partition columns
         )
 
         # Add the dataset entry to the catalog
@@ -350,10 +326,8 @@ class TimeLakeCatalog(BaseTimeLakeCatalog):
         df.write_delta(
             path,
             mode="overwrite",
-            delta_write_options={"partition_by": partition_columns}
-            if partition_columns
-            else {},
             storage_options=storage_options,
+            delta_write_options={"partition_by": partition_columns},
         )
 
         return dataset_entry

@@ -24,11 +24,9 @@ class TimeLakeStorage(BaseTimeLakeStorage):
 class LocalTimeLakeStorage(TimeLakeStorage):
     def __init__(self, path: Path):
         super().__init__(path)
-        self.features_path = Path(os.path.join(path, "_timelake_features"))
 
     def ensure_directories(self):
         os.makedirs(self.path, exist_ok=True)
-        os.makedirs(self.features_path, exist_ok=True)
 
     def get_storage_options(self) -> dict:
         return {}

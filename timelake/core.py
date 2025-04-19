@@ -11,7 +11,11 @@ from timelake.base import (
     BaseTimeLakeStorage,
 )
 from timelake.catalog import TimeLakeCatalog
-from timelake.constants import CatalogEntryType, StorageType, TimeLakeColumns
+from timelake.constants import (
+    DATASETS_FOLDER,
+    CatalogEntryType,
+    StorageType,
+)
 from timelake.models import DatasetEntry, TimeLakeEntry
 from timelake.preprocessor import TimeLakePreprocessor
 from timelake.storage import TimeLakeStorage
@@ -61,7 +65,6 @@ class TimeLake(BaseTimeLake):
     def create(
         cls,
         path: Path | str,
-        df: pl.DataFrame,
         timestamp_column: str,
         storage_type: StorageType = StorageType.LOCAL,
         storage_kwargs: Optional[dict] = None,
@@ -72,7 +75,6 @@ class TimeLake(BaseTimeLake):
 
         Args:
             path: Path to store the TimeLake
-            df: Initial data to store
             timestamp_column: Name of timestamp column
             storage_type: Type of storage to use
             storage_kwargs: Storage-specific kwargs
@@ -81,35 +83,23 @@ class TimeLake(BaseTimeLake):
         Returns:
             TimeLake: The created TimeLake instance
         """
-        path = ensure_path(path)  # Ensure path is a str
+        # Initialize all core components
+        path = ensure_path(path)
         storage_kwargs = storage_kwargs or {}
         storage = TimeLakeStorage.create_storage(storage_type, path, **storage_kwargs)
-        storage.ensure_directories()
         preprocessor = preprocessor or TimeLakePreprocessor()
-
-        # Create catalog
         catalog = TimeLakeCatalog.create_catalog(path, storage.get_storage_options())
 
-        # Create TimeLake instance
-        instance = cls(
+        # Ensure storage is ready
+        storage.ensure_directories()
+
+        # Create and return TimeLake instance
+        return cls(
             timestamp_column=timestamp_column,
             storage=storage,
             preprocessor=preprocessor,
             catalog=catalog,
         )
-
-        # Process and write the initial data
-        processed_df = preprocessor.run(df, timestamp_column)
-
-        # Register the main dataset in the catalog
-        catalog.create_dataset(
-            name="main",
-            path=path,
-            df=processed_df,
-            partition_columns=preprocessor.get_default_partitions(timestamp_column),
-        )
-
-        return instance
 
     @classmethod
     def open(
@@ -163,33 +153,40 @@ class TimeLake(BaseTimeLake):
     def write(
         self,
         df: pl.DataFrame,
+        name: str,
         mode: Literal["append", "overwrite"] = "append",
     ) -> None:
         """
-        Write data to the TimeLake.
+        Write data to a dataset in the TimeLake.
 
         Args:
             df: Data to write
+            name: Name of the dataset
             mode: Write mode (append or overwrite)
         """
-        df = self.preprocessor.run(df, self.timestamp_column)
-        df.write_delta(
-            self.path,
+        processed_df = self.preprocessor.run(df, self.timestamp_column)
+        dataset = self.get_or_create_dataset(name=name, df=processed_df)
+
+        processed_df.write_delta(
+            dataset.path,
             mode=mode,
             delta_write_options={"partition_by": self.config.partition_by},
             storage_options=self.storage.get_storage_options(),
         )
 
-    def upsert(self, df: pl.DataFrame) -> None:
+    def upsert(self, df: pl.DataFrame, name: str) -> None:
         """
-        Upsert data into the TimeLake.
+        Upsert data into a dataset in the TimeLake.
 
         Args:
             df: Data to upsert
+            name: Name of the dataset
         """
-        df = self.preprocessor.run(df, self.timestamp_column)
-        df.write_delta(
-            self.path,
+        processed_df = self.preprocessor.run(df, self.timestamp_column)
+        dataset = self.get_or_create_dataset(name=name, df=processed_df)
+
+        processed_df.write_delta(
+            dataset.path,
             mode="merge",
             delta_merge_options={
                 "predicate": f"s.{self.timestamp_column} = t.{self.timestamp_column}",
@@ -200,33 +197,43 @@ class TimeLake(BaseTimeLake):
 
     def read(
         self,
-        signal: str = None,
+        dataset: str,
         start_date: str = None,
         end_date: str = None,
     ) -> pl.DataFrame:
         """
-        Read data from the TimeLake.
+        Read data from a specific dataset in the TimeLake.
 
         Args:
-            signal: Signal to filter by
+            dataset: Name of the dataset to read from
             start_date: Start date filter
             end_date: End date filter
 
         Returns:
             pl.DataFrame: The filtered data
         """
-        dt = DeltaTable(self.path, storage_options=self.storage.get_storage_options())
+        # Get the dataset entry
+        dataset_entry = self.get_dataset(name=dataset)
+        if not dataset_entry:
+            raise ValueError(f"Dataset '{dataset}' does not exist in the TimeLake.")
 
+        # Get the dataset path
+        dataset_path = dataset_entry.path
+
+        # Initialize the DeltaTable
+        dt = DeltaTable(
+            dataset_path, storage_options=self.storage.get_storage_options()
+        )
+
+        # Build filters
         filters = []
-        if signal:
-            filters.append((TimeLakeColumns.SIGNAL.value, "=", signal))
-
         timestamp_partition_column = self.config.timestamp_partition_column
         if start_date:
             filters.append((timestamp_partition_column, ">=", start_date))
         if end_date:
             filters.append((timestamp_partition_column, "<=", end_date))
 
+        # Read the data with or without filters
         if filters:
             return pl.read_delta(
                 dt,
@@ -244,8 +251,6 @@ class TimeLake(BaseTimeLake):
         self,
         name: str,
         df: pl.DataFrame,
-        partition_columns: Optional[List[str]] = None,
-        primary_key: Optional[str] = None,
     ) -> str:
         """
         Create a new dataset in the TimeLake.
@@ -253,21 +258,21 @@ class TimeLake(BaseTimeLake):
         Args:
             name: Name of the dataset
             df: Data to write
-            partition_columns: Columns to partition by
-            primary_key: Primary key column
 
         Returns:
             str: ID of the created dataset
         """
-        dataset_path = f"{self.path}/{name}"
+        dataset_path = Path(self.path) / DATASETS_FOLDER / name
+
+        # Process the data
+        processed_df = self.preprocessor.run(df, self.timestamp_column)
 
         # Delegate dataset creation to the catalog
         return self.catalog.create_dataset(
             name=name,
-            path=dataset_path,
-            df=df,
-            partition_columns=partition_columns,
-            primary_key=primary_key,
+            path=str(dataset_path),
+            df=processed_df,
+            partition_columns=self.config.partition_by,
             storage_options=self.storage.get_storage_options(),
         )
 
@@ -280,14 +285,44 @@ class TimeLake(BaseTimeLake):
         """
         return self.catalog.list_entries(entry_type=CatalogEntryType.DATASET.value)
 
-    def get_dataset(self, dataset_id: str) -> Optional[DatasetEntry]:
+    def get_dataset(self, name: str) -> Optional[DatasetEntry]:
         """
-        Get a dataset by ID.
+        Get a dataset by name.
 
         Args:
-            dataset_id: ID of the dataset
+            name: Name of the dataset
 
         Returns:
             Optional[DatasetEntry]: Dataset entry if found
         """
-        return self.catalog.get_entry(dataset_id)
+        return self.catalog.get_entry_by_name(
+            name=name, entry_type=CatalogEntryType.DATASET.value
+        )
+
+    def get_or_create_dataset(
+        self,
+        name: str,
+        df: Optional[pl.DataFrame] = None,
+    ) -> DatasetEntry:
+        """
+        Get an existing dataset or create a new one.
+
+        Args:
+            name: Name of the dataset
+            df: Optional data to write if creating new dataset
+
+        Returns:
+            DatasetEntry: The dataset entry
+        """
+        # Try to get existing dataset
+        existing = self.catalog.get_entry_by_name(
+            name=name, entry_type=CatalogEntryType.DATASET.value
+        )
+        if existing:
+            return existing
+
+        # Create new dataset if not found
+        if df is None:
+            raise ValueError("DataFrame must be provided when creating new dataset")
+
+        return self.create_dataset(name=name, df=df)

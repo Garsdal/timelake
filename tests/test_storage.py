@@ -42,7 +42,6 @@ def s3_storage():
 
 def test_ensure_directories_local(local_storage: LocalTimeLakeStorage):
     assert os.path.exists(local_storage.path)
-    assert os.path.exists(local_storage.features_path)
 
 
 def test_ensure_directories_s3(s3_storage: S3TimeLakeStorage):

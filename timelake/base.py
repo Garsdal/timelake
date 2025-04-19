@@ -34,11 +34,6 @@ class BaseTimeLakeCatalog(ABC):
         pass
 
     @abstractmethod
-    def get_entry(self, entry_id: str) -> Optional[Dict[str, Any]]:
-        """Get an entry from the catalog by ID."""
-        pass
-
-    @abstractmethod
     def get_entry_by_name(self, name: str, entry_type: str) -> Optional[Dict[str, Any]]:
         """Get an entry from the catalog by name and type."""
         pass
@@ -64,8 +59,6 @@ class BaseTimeLakeCatalog(ABC):
         name: str,
         path: Path,
         df: pl.DataFrame,
-        partition_columns: Optional[List[str]] = None,
-        primary_key: Optional[str] = None,
         storage_options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """

@@ -2,6 +2,7 @@ from enum import Enum
 
 TIMELAKE_VERSION = "0.0.1"
 CATALOG_TABLE_NAME = "_timelake_catalog"
+DATASETS_FOLDER = "_timelake_datasets"  # Add this new constant
 
 
 class TimeLakeColumns(Enum):
